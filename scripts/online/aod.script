@@ -58,7 +58,7 @@ lt=lt.replace(tzinfo=tz.tzlocal())
 ut=lt.astimezone(tz.tzutc())
 
 # last available model date
-if datetime.datetime.now(datetime.UTC).hour<=12:
+if datetime.datetime.now(datetime.timezone.utc).hour<=12:
    um=ut-datetime.timedelta(days=1)
    modeld=um.strftime("%Y-%m-%d")
    modelt='12:00'
