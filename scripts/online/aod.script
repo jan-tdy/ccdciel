@@ -27,6 +27,7 @@ except:
   print('Please install the cdsapi module in your Python virtual environment') 
   print('and be sure to setup your API key')
   print('More information from https://ads.atmosphere.copernicus.eu/how-to-api')
+  print('When installing the key, be sure to follow the ADS links, not CDS')
   sys.exit(1)
 
 # prevision hour for current day
