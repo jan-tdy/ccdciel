@@ -367,7 +367,6 @@ begin
   try
     thefile := tfilestream.Create(filen2, fmcreate);
   except
-    thefile.free;
     exit;
   end;
 
@@ -520,7 +519,6 @@ begin
   try
     thefile := tfilestream.Create(filen2, fmcreate);
   except
-    thefile.free;
     exit;
   end;
 
@@ -660,7 +658,6 @@ begin
   try
     thefile := tfilestream.Create(filen2, fmcreate);
   except
-    thefile.free;
     exit;
   end;
 
@@ -808,7 +805,6 @@ begin
   try
     thefile := tfilestream.Create(filen2, fmcreate);
   except
-    thefile.free;
     exit;
   end;
 
