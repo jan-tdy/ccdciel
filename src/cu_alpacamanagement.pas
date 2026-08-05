@@ -237,7 +237,6 @@ begin
         jf:=jl.Items[i].FindPath('flags');
         for j:=0 to jf.Count-1 do begin
           buf:=jf.Items[j].AsString;
-          if buf='LOOPBACK' then f_loopback:=true;
           if buf='BROADCAST' then f_broadcast:=true;
         end;
       end;
@@ -246,12 +245,7 @@ begin
         if ja.Items[j].FindPath('family')=nil then Continue;
         buf:=ja.Items[j].FindPath('family').AsString;
         if buf='inet' then begin
-         if f_loopback then begin
-          if ja.Items[j].FindPath('local')=nil then Continue;
-          s:=ja.Items[j].FindPath('local').AsString;
-          Result.Add(Trim(s));
-         end
-         else if f_broadcast then begin
+         if f_broadcast then begin
           if ja.Items[j].FindPath('broadcast')=nil then Continue;
           s:=ja.Items[j].FindPath('broadcast').AsString;
           Result.Add(Trim(s));
@@ -287,21 +281,12 @@ begin
         begin
           n:=pos('flags=',sl[i]);
           if n>0 then begin // new interface
-            f_loopback:=pos('LOOPBACK',sl[i])>0;
             f_broadcast:=pos('BROADCAST',sl[i])>0;
           end;
           if f_broadcast then begin
             n:=Pos('broadcast ', sl[i]);
             if n=0 then Continue;
             s:=Copy(sl[i], n+10, 999);
-            n:=Pos(' ', s);
-            if n>0 then s:=Copy(s, 1, n);
-            Result.Add(Trim(s));
-          end;
-          if f_loopback then begin
-            n:=Pos('inet ', sl[i]);
-            if n=0 then Continue;
-            s:=Copy(sl[i], n+5, 999);
             n:=Pos(' ', s);
             if n>0 then s:=Copy(s, 1, n);
             Result.Add(Trim(s));
@@ -313,21 +298,12 @@ begin
         begin
           n:=pos('Link encap:',sl[i]);
           if n>0 then begin // new interface
-            f_loopback:=pos('Local Loopback',sl[i])>0;
             f_broadcast:=not f_loopback;
           end;
           if f_broadcast then begin
             n:=Pos('Bcast:', sl[i]);
             if n=0 then Continue;
             s:=Copy(sl[i], n+6, 999);
-            n:=Pos(' ', s);
-            if n>0 then s:=Copy(s, 1, n);
-            Result.Add(Trim(s));
-          end;
-          if f_loopback then begin
-            n:=Pos('inet addr:', sl[i]);
-            if n=0 then Continue;
-            s:=Copy(sl[i], n+10, 999);
             n:=Pos(' ', s);
             if n>0 then s:=Copy(s, 1, n);
             Result.Add(Trim(s));
@@ -342,7 +318,15 @@ begin
   for i:=0 to Result.Count-1 do begin
     if copy(Result[i],1,3)='127' then f_loopback:=true;
   end;
-  if not f_loopback then Result.Add('127.0.0.1');
+  {A unicast datagram to 127.0.0.1 reaches only ONE of the sockets bound to
+   the discovery port, so a second Alpaca server on the same machine - ASCOM
+   7 starts one automatically - is silently invisible. The loopback
+   broadcast address is delivered to every socket bound with SO_REUSEADDR,
+   so all local servers answer.}
+  if not f_loopback then begin
+    Result.Add('127.255.255.255');
+    Result.Add('127.0.0.1');
+  end;
 end;
 
 function GetInsensitivePath(src:TJSONData; path:string):TJSONData;
