@@ -619,12 +619,13 @@ end;
 
 procedure T_indicamera.ServerDisconnected(Sender: TObject);
 begin
+  Fconnected:=false;
   FStatus := devDisconnected;
   FWheelStatus := devDisconnected;
   if (indiws<>nil)and(not indiws.IsTerminated) then DisconnectWs;
   if Assigned(FonStatusChange) then FonStatusChange(self);
   if Assigned(FonWheelStatusChange) then FonWheelStatusChange(self);
-  msg(rsServer+' '+rsDisconnected3,1);
+  msg(rsDisconnected3,1);
 end;
 
 procedure T_indicamera.NewDevice(dp: Basedevice);

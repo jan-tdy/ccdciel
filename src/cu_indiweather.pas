@@ -256,9 +256,11 @@ end;
 
 procedure T_indiweather.ServerDisconnected(Sender: TObject);
 begin
+  Fconnected:=false;
+  ReadyTimer.Enabled:=false;
   FStatus := devDisconnected;
   if Assigned(FonStatusChange) then FonStatusChange(self);
-  msg(rsServer+' '+rsDisconnected3,1);
+  msg(rsDisconnected3,1);
 end;
 
 procedure T_indiweather.NewDevice(dp: Basedevice);
