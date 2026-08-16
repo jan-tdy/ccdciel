@@ -191,6 +191,10 @@ begin
         Synchronize(@ShowError);
       //writetrace('bind to '+fipaddr+' '+fipport);
       bind(FIPaddr, FIPport);
+      if (lasterror=9)and(FIPaddr='::0') then begin
+        FIPaddr:='0.0.0.0';
+        bind(FIPaddr, FIPport);
+      end;
       if lasterror <> 0 then
         Synchronize(@ShowError);
       //writetrace('listen');
