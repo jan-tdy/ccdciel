@@ -37,7 +37,7 @@ type
   private
     started: boolean;
     TcpClient : TTcpclient;
-    FLastObjname: string;
+    LastRecvData: string;
   protected
     procedure Execute; override;
     procedure ProcessDataSyn; override;
@@ -74,7 +74,7 @@ FTargetHost:='localhost';
 FTargetPort:='3292';
 FTimeout:=200;
 FCmdTimeout:=10/86400;
-FLastObjname:='';
+LastRecvData:='';
 end;
 
 procedure TPlanetarium_cdc.Connect(cp1,cp2,cp3,cp4: string; cb1:boolean=False);
@@ -216,7 +216,8 @@ procedure TPlanetarium_cdc.ProcessDataSyn;
 var p:Tstringlist;
     i: integer;
 begin
-if FRecvData<>'' then begin
+if (FRecvData<>'')and(LastRecvData<>FRecvData) then begin
+  LastRecvData:=FRecvData;
   p:=Tstringlist.Create;
   SplitRec(FRecvData,#9,p);
   if (p[0]='>')and(copy(p[2],1,4)<>'From') then begin
@@ -249,8 +250,7 @@ if FRecvData<>'' then begin
     end
     else
        Fpa:=NullCoord;
-    if assigned(FonReceiveData) and (Fobjname<>FLastObjname) then FonReceiveData(FRecvData);
-    FLastObjname:=Fobjname;
+    if assigned(FonReceiveData) then FonReceiveData(FRecvData);
   end;
   p.free;
 end;
@@ -442,7 +442,6 @@ begin
   Fpa:=NullCoord;
   Fmagn:=NullCoord;
   Fobjname:='';
-  FLastObjname:='';
 end;
 
 end.
