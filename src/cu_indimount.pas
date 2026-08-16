@@ -713,7 +713,6 @@ begin
 end;
 
 function T_indimount.Slew(sra,sde: double):Boolean;
-var slewtimeout:integer;
 begin
   result:=false;
   if (CoordSet<>nil) and (CoordSetTrack<>nil) and (coord_prop<>nil) then begin
@@ -725,12 +724,13 @@ begin
     IUResetSwitch(CoordSet);
     CoordSetTrack.s:=ISS_ON;
     indiclient.sendNewSwitch(CoordSet);
-    if (15*abs(coord_ra.value-sra)+abs(coord_dec.value-sde))>0.5 then slewtimeout:=SlewDelay else slewtimeout:=30000;
     coord_ra.value:=sra;
     coord_dec.value:=sde;
     indiclient.sendNewNumber(coord_prop);
-    indiclient.WaitBusy(coord_prop,slewtimeout,10000);
-    msg(rsSlewComplete);
+    if indiclient.WaitBusy(coord_prop,SlewDelay,10000) then
+      msg(rsSlewComplete)
+    else
+      msg(rsTimeout);
     FMountSlewing:=false;
     result:=true;
   end;
