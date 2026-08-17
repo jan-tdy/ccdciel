@@ -70,9 +70,7 @@ type
     Label4: TLabel;
     LabelGain: TLabel;
     LabelOffset: TLabel;
-    Panel41: TPanel;
     PanelSlewBrightStar: TPanel;
-    PanelAutofocusFilter: TPanel;
     PanelRecenter: TPanel;
     Label130: TLabel;
     Label131: TLabel;
@@ -2479,8 +2477,9 @@ end;
 
 procedure Tf_option.GuiderAutofocusClick(Sender: TObject);
 begin
-  PanelAutofocusFilter.Visible:=not GuiderAutofocus.Checked;
-  if not PanelAutofocusFilter.Visible then
+  cbAutofocusFilter.Visible:=not GuiderAutofocus.Checked;
+  Label4.Visible:=cbAutofocusFilter.Visible;
+  if not cbAutofocusFilter.Visible then
      cbAutofocusFilter.ItemIndex:=0;
   PanelFocusStar.Visible:=not GuiderAutofocus.Checked;
   AutofocusBinning.Visible:=not GuiderAutofocus.Checked;
