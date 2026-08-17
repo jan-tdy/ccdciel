@@ -14271,6 +14271,7 @@ begin
   end;
   // set filter
   if (AutofocusFilter>0)and(wheel.Status=devConnected) then begin
+    SaveAutofocusFilter:=wheel.Filter;
     wheel.Filter:=AutofocusFilter;
     wait(FocuserDelay+5);  // let time to modify the exposure factor and apply the focus offset
   end;
