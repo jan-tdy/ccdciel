@@ -1375,6 +1375,12 @@ begin
   // cancel any restart in progress
   WeatherRestartTimer.Enabled:=false;
   WeatherCancelRestart:=true;
+  // stop waiting for a target to start
+  if WaitTillrunning then begin
+    if wt_pause<>nil
+     then wt_pause.BtnCancel.Click
+     else cancelWaitTill:=true;
+  end;
 end;
 
 procedure T_Targets.WeatherRestart;
@@ -2075,7 +2081,7 @@ begin
     Fcapture.CheckLight(self);
   end;
 
-  // check weather
+  // check weather before to initialize a target
   if FRunning and (FWeather.Connected) then begin
     if(not FWeather.Clear) then begin
       if not WeatherPauseTarget then begin
