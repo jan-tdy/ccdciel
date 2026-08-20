@@ -1642,6 +1642,8 @@ begin
   onMsgGlobal:=@NewMessage;
   PolarAlignmentOverlay:=false;
   ImgPixRatio:=1;
+  GuideImgPixRatio:=1;
+  FinderImgPixRatio:=1;
   Undersampled:=false;
   ZoomMin:=1;
   AnnotateMain:=false;
