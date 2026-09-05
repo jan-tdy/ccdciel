@@ -1,4 +1,4 @@
-# CCDciel
+# CCDCiel
 
 A CCD capture software intended for the amateur astronomer.
 
