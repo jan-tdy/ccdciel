@@ -132,15 +132,40 @@ object f_EditTargets: Tf_EditTargets
             ParentColor = False
             ParentFont = False
           end
-          object CheckBoxWaitWarm: TCheckBox
+          object CheckBoxWaitScript: TCheckBox
             Left = 8
             Height = 18
-            Top = 22
-            Width = 230
-            Caption = 'Wait for the camera before running the script'
+            Top = 24
+            Width = 45
+            Caption = 'Wait'
             Enabled = False
+            OnChange = CheckBoxWaitScriptChange
             ParentFont = False
             TabOrder = 1
+          end
+          object SpinWaitMinutes: TSpinEditEx
+            Left = 56
+            Height = 24
+            Top = 20
+            Width = 50
+            Constraints.MaxHeight = 24
+            Enabled = False
+            MaxLength = 0
+            ParentFont = False
+            TabOrder = 2
+            MaxValue = 999
+            MinValue = 1
+            NullValue = 0
+            Value = 5
+          end
+          object LabelWaitMinutes: TLabel
+            Left = 112
+            Height = 18
+            Top = 24
+            Width = 123
+            Caption = 'min. before running the script'
+            ParentColor = False
+            ParentFont = False
           end
         end
       end

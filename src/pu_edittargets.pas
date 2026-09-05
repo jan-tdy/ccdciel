@@ -117,7 +117,9 @@ type
     StartOpt: TCheckListBox;
     PlanSwitch: TTabSheet;
     TermOpt: TCheckListBox;
-    CheckBoxWaitWarm: TCheckBox;
+    CheckBoxWaitScript: TCheckBox;
+    SpinWaitMinutes: TSpinEditEx;
+    LabelWaitMinutes: TLabel;
     FFstopbox: TComboBox;
     FlatFilterList: TCheckGroup;
     Label4: TLabel;
@@ -287,6 +289,7 @@ type
     procedure PanelOptionsResize(Sender: TObject);
     procedure PointCoordChange(Sender: TObject);
     procedure RepeatCountListChange(Sender: TObject);
+    procedure CheckBoxWaitScriptChange(Sender: TObject);
     procedure SeqStartChange(Sender: TObject);
     procedure SeqStartTwilightChange(Sender: TObject);
     procedure SeqStopChange(Sender: TObject);
@@ -424,7 +427,8 @@ begin
   planheight:=-1;
   f_selectscript:=Tf_selectscript.Create(self);
   TermOpt.Checked[cbStopTracking]:=true;
-  CheckBoxWaitWarm.Enabled:=false;
+  CheckBoxWaitScript.Enabled:=false;
+  SpinWaitMinutes.Enabled:=false;
   SetLang;
   LoadPlanList;
   LoadScriptList;
@@ -659,8 +663,8 @@ begin
   TermOpt.Items[cbWarm]:=rsWarmTheCamer;
   TermOpt.Items[cbScript]:=rsRunAScript;
   TermOpt.Items[cbUnattended]:=rsUnattendedEr;
-  CheckBoxWaitWarm.Caption:=rsWaitCameraBeforeScript;
-  CheckBoxWaitWarm.Hint:=rsWaitingCameraTemp;
+  CheckBoxWaitScript.Caption:=rsWaitBeforeScript;
+  LabelWaitMinutes.Caption:=rsMinBeforeScript;
   // hint
   Preview.Hint:=rsStartAPrevie;
   CheckBoxRepeatList.Hint:=rsRepeatTheWho2;
@@ -1766,7 +1770,8 @@ begin
      end;
   end;
   SetEndScriptName;
-  CheckBoxWaitWarm.Enabled:=TermOpt.Checked[cbWarm];
+  CheckBoxWaitScript.Enabled:=TermOpt.Checked[cbScript];
+  SpinWaitMinutes.Enabled:=CheckBoxWaitScript.Enabled and CheckBoxWaitScript.Checked;
   finally
   Lockcb:=false;
   end;
@@ -3183,6 +3188,11 @@ begin
     FTargetsRepeat:=RepeatCountList.Value;
 end;
 
+procedure Tf_EditTargets.CheckBoxWaitScriptChange(Sender: TObject);
+begin
+  SpinWaitMinutes.Enabled:=CheckBoxWaitScript.Enabled and CheckBoxWaitScript.Checked;
+end;
+
 procedure Tf_EditTargets.FlatFilterListItemClick(Sender: TObject; Index: integer);
 begin
   TargetChange(Sender);
@@ -4059,7 +4069,8 @@ begin
   value.AtEndPark         := TermOpt.Checked[cbParkScope];
   value.AtEndCloseDome    := TermOpt.Checked[cbParkDome];
   value.AtEndWarmCamera   := TermOpt.Checked[cbWarm];
-  value.AtEndWaitCamera   := CheckBoxWaitWarm.Checked;
+  value.AtEndWaitScript   := CheckBoxWaitScript.Checked;
+  value.AtEndWaitMinutes  := SpinWaitMinutes.Value;
   value.AtEndRunScript    := TermOpt.Checked[cbScript];
   value.OnErrorRunScript  := TermOpt.Checked[cbUnattended];
   value.AtEndScript       := EndScript;
@@ -4104,8 +4115,10 @@ begin
      TermOpt.Checked[cbWarm]:=value.AtEndWarmCamera;
      TermOpt.Checked[cbScript]:=value.AtEndRunScript;
      TermOpt.Checked[cbUnattended]:=value.OnErrorRunScript;
-     CheckBoxWaitWarm.Checked:=value.AtEndWaitCamera;
-     CheckBoxWaitWarm.Enabled:=TermOpt.Checked[cbWarm];
+     CheckBoxWaitScript.Checked:=value.AtEndWaitScript;
+     SpinWaitMinutes.Value:=value.AtEndWaitMinutes;
+     CheckBoxWaitScript.Enabled:=TermOpt.Checked[cbScript];
+     SpinWaitMinutes.Enabled:=CheckBoxWaitScript.Enabled and CheckBoxWaitScript.Checked;
      EndScript:=value.AtEndScript;
      UnattendedScript:=value.OnErrorScript;
      for i:=1 to value.Count do begin
@@ -4141,8 +4154,10 @@ begin
      TermOpt.Checked[cbWarm]:=false;
      TermOpt.Checked[cbScript]:=false;
      TermOpt.Checked[cbUnattended]:=false;
-     CheckBoxWaitWarm.Checked:=false;
-     CheckBoxWaitWarm.Enabled:=false;
+     CheckBoxWaitScript.Checked:=false;
+     CheckBoxWaitScript.Enabled:=false;
+     SpinWaitMinutes.Value:=5;
+     SpinWaitMinutes.Enabled:=false;
      EndScript:='';
      UnattendedScript:='';
      TargetList.RowCount:=1;

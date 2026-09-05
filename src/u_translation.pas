@@ -764,12 +764,12 @@ resourcestring
   rsParkTheTeles2 = 'Park the telescope';
   rsWarmTheCamer = 'Warm the camera';
   rsRunAScript = 'Run a script';
-  rsWaitCameraBeforeScript = 'Wait for the camera before running the script';
+  rsWaitBeforeScript = 'Wait';
+  rsMinBeforeScript = 'min. before running the script';
   rsTheTelescope = 'The telescope is parked!';
   rsExecutingThe = 'Executing the termination error actions.';
   rsExecutingThe2 = 'Executing the termination actions.';
-  rsWaitingCameraTemp = 'Waiting for the camera to reach the end temperature before running the script.';
-  rsWaitingCameraTempTimeout = 'Timeout waiting for the camera temperature, continuing with the termination actions.';
+  rsWaitingBeforeScript = 'Waiting %d minute(s) before running the script.';
   rsTheSequenceW = 'The sequence %s will be stopped at %s, in %s seconds.';
   rsDarkNight = 'Dark%snight';
   rsTargetName = 'Target%sname';

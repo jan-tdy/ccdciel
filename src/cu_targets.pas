@@ -98,10 +98,11 @@ type
       FFileVersion, FSlewRetry: integer;
       FUpdatecoordDelay: integer;
       FAtEndPark, FAtEndCloseDome, FAtEndStopTracking,FAtEndWarmCamera,FAtEndRunScript,FOnErrorRunScript,FAtEndShutdown: boolean;
-      FAtEndWaitCamera: boolean;
+      FAtEndWaitScript: boolean;
+      FAtEndWaitMinutes: integer;
       FAtEndScript, FOnErrorScript: string;
-      WarmCameraWaitTimer: TTimer;
-      FWarmWaitDeadline: TDateTime;
+      FRunEndActionDone: TNotifyEvent;
+      EndActionWaitTimer: TTimer;
       FAtStartCool,FAtStartUnpark, FAtStartRunScript: boolean;
       FAtStartScript: string;
       SkipTarget: boolean;
@@ -134,10 +135,13 @@ type
       function InitTarget:boolean;
       function InitSkyFlat: boolean;
       procedure StartPlan;
-      procedure RunErrorAction;
-      procedure RunEndAction(confirm: boolean=true);
+      procedure RunErrorAction(donecallback: TNotifyEvent=nil);
+      procedure RunEndAction(confirm: boolean=true; donecallback: TNotifyEvent=nil);
       procedure RunEndActionFinish;
-      procedure WarmCameraWaitTimerTimer(Sender: TObject);
+      procedure RunEndActionDone;
+      procedure EndActionWaitTimerTimer(Sender: TObject);
+      procedure StopSequenceFinalize(Sender: TObject);
+      procedure FinalizeStopTargets(Sender: TObject);
       function StopGuider:boolean;
       function StartGuider:boolean;
       function Slew(ra,de,magn: double; precision,planprecision: boolean):boolean;
@@ -258,7 +262,8 @@ type
       property AtEndRunScript: boolean read FAtEndRunScript write FAtEndRunScript;
       property OnErrorRunScript: boolean read FOnErrorRunScript write FOnErrorRunScript;
       property AtEndScript: string read FAtEndScript write FAtEndScript;
-      property AtEndWaitCamera: boolean read FAtEndWaitCamera write FAtEndWaitCamera;
+      property AtEndWaitScript: boolean read FAtEndWaitScript write FAtEndWaitScript;
+      property AtEndWaitMinutes: integer read FAtEndWaitMinutes write FAtEndWaitMinutes;
       property OnErrorScript: string read FOnErrorScript write FOnErrorScript;
       property AtEndShutdown: boolean read FAtEndShutdown write FAtEndShutdown;
       property OnShutdown: TNotifyEvent read FonShutdown write FonShutdown;
@@ -309,7 +314,8 @@ begin
   FAtEndRunScript:=false;
   FOnErrorRunScript:=false;
   FAtEndShutdown:=false;
-  FAtEndWaitCamera:=false;
+  FAtEndWaitScript:=false;
+  FAtEndWaitMinutes:=5;
   FAtEndScript:='';
   FOnErrorScript:='';
   FDoneStatus:='';
@@ -350,10 +356,9 @@ begin
   WeatherRestartTimer:=TTimer.Create(self);
   WeatherRestartTimer.Enabled:=false;
   WeatherRestartTimer.OnTimer:=@WeatherRestartTimerTimer;
-  WarmCameraWaitTimer:=TTimer.Create(self);
-  WarmCameraWaitTimer.Enabled:=false;
-  WarmCameraWaitTimer.Interval:=2000;
-  WarmCameraWaitTimer.OnTimer:=@WarmCameraWaitTimerTimer;
+  EndActionWaitTimer:=TTimer.Create(self);
+  EndActionWaitTimer.Enabled:=false;
+  EndActionWaitTimer.OnTimer:=@EndActionWaitTimerTimer;
 end;
 
 destructor  T_Targets.Destroy;
@@ -537,7 +542,8 @@ begin
   FAtEndStopTracking := Source.FAtEndStopTracking;
   FAtEndWarmCamera := Source.FAtEndWarmCamera;
   FAtEndShutdown := Source.FAtEndShutdown;
-  FAtEndWaitCamera := Source.FAtEndWaitCamera;
+  FAtEndWaitScript := Source.FAtEndWaitScript;
+  FAtEndWaitMinutes := Source.FAtEndWaitMinutes;
   FAtEndRunScript := Source.FAtEndRunScript;
   FAtEndScript := Source.FAtEndScript;
   FOnErrorRunScript := Source.FOnErrorRunScript;
@@ -602,7 +608,8 @@ begin
   FAtEndStopTracking := Source.FAtEndStopTracking;
   FAtEndWarmCamera := Source.FAtEndWarmCamera;
   FAtEndShutdown := Source.FAtEndShutdown;
-  FAtEndWaitCamera := Source.FAtEndWaitCamera;
+  FAtEndWaitScript := Source.FAtEndWaitScript;
+  FAtEndWaitMinutes := Source.FAtEndWaitMinutes;
   FAtEndRunScript := Source.FAtEndRunScript;
   FAtEndScript := Source.FAtEndScript;
   FOnErrorRunScript := Source.FOnErrorRunScript;
@@ -815,7 +822,8 @@ begin
    AtEndPark        := FSequenceFile.Items.GetValue('/Termination/Park',false);
    AtEndCloseDome   := FSequenceFile.Items.GetValue('/Termination/CloseDome',false);
    AtEndWarmCamera  := FSequenceFile.Items.GetValue('/Termination/WarmCamera',false);
-   AtEndWaitCamera  := FSequenceFile.Items.GetValue('/Termination/WaitCamera',false);
+   AtEndWaitScript  := FSequenceFile.Items.GetValue('/Termination/WaitScript',false);
+   AtEndWaitMinutes := FSequenceFile.Items.GetValue('/Termination/WaitMinutes',5);
    AtEndRunScript   := FSequenceFile.Items.GetValue('/Termination/RunScript',false);
    OnErrorRunScript := FSequenceFile.Items.GetValue('/Termination/ErrorRunScript',false);
    AtEndScript      := FSequenceFile.Items.GetValue('/Termination/EndScript','');
@@ -1025,7 +1033,8 @@ try
     FSequenceFile.Items.SetValue('/Termination/Park',AtEndPark);
     FSequenceFile.Items.SetValue('/Termination/CloseDome',AtEndCloseDome);
     FSequenceFile.Items.SetValue('/Termination/WarmCamera',AtEndWarmCamera);
-    FSequenceFile.Items.SetValue('/Termination/WaitCamera',AtEndWaitCamera);
+    FSequenceFile.Items.SetValue('/Termination/WaitScript',AtEndWaitScript);
+    FSequenceFile.Items.SetValue('/Termination/WaitMinutes',AtEndWaitMinutes);
     FSequenceFile.Items.SetValue('/Termination/RunScript',AtEndRunScript);
     FSequenceFile.Items.SetValue('/Termination/ErrorRunScript',OnErrorRunScript);
     FSequenceFile.Items.SetValue('/Termination/EndScript',AtEndScript);
@@ -1520,10 +1529,11 @@ begin
      FRunning:=false;
      StopGuider;
      if Unattended then begin
-       RunEndAction;
+       RunEndAction(true, @StopSequenceFinalize);
      end
      else begin
        msg(rsSequenceStop,1);
+       StopSequenceFinalize(self);
      end;
      ShowDelayMsg('');
      if EmailEndSequence then begin
@@ -1548,7 +1558,7 @@ begin
      StopGuider;
      if seq_scriptengine.ScriptRunning then seq_scriptengine.StopScript;
      msg(rsSequenceAbor,0);
-     RunErrorAction;
+     RunErrorAction(@StopSequenceFinalize);
      ShowDelayMsg('');
      if EmailAbortSequence or EmailEndSequence then begin
        r:=email(rsSequenceAbor,rsSequenceAbor+crlf+FName);
@@ -1556,17 +1566,21 @@ begin
        msg(r,9);
      end;
    end;
-   SaveDoneCount;
-   if assigned(FonEndSequence) then FonEndSequence(nil);
-   CurrentTargetName:='';
-   CurrentTargetInfo:='[" "," ",0,0,0]';
-   CurrentStepName:='';
-   CurrentSequenceDirectory:='';
  end
  else begin
     msg(rsNotRunningNo,1);
     FWaiting:=false;
  end;
+end;
+
+procedure T_Targets.StopSequenceFinalize(Sender: TObject);
+begin
+  SaveDoneCount;
+  if assigned(FonEndSequence) then FonEndSequence(nil);
+  CurrentTargetName:='';
+  CurrentTargetInfo:='[" "," ",0,0,0]';
+  CurrentStepName:='';
+  CurrentSequenceDirectory:='';
 end;
 
 function T_Targets.CheckStatus:boolean;
@@ -2304,35 +2318,37 @@ begin
    end
    else begin
      // nothing more to do, stop the sequence
-     try
      FFinalizing:=true;
      FRunning:=false;
      TargetTimer.Enabled:=false;
      StopTimer.Enabled:=false;
      msg(Format(rsSequenceFini, [FName]),1);
-     RunEndAction;
+     RunEndAction(true, @FinalizeStopTargets);
      ShowDelayMsg('');
-     if (not TargetForceNext)and(not FAllStepsDone) then // do not mark the global sequence done if some step are incomplete
-       Dec(FTargetsRepeatCount);
-     Dec(FCurrentTarget);
-     // save status
-     SaveDoneCount;
-     FCurrentTarget:=-1;
-     if EmailEndSequence then begin
-       r:=email(Format(rsSequenceFini, [FName]),Format(rsSequenceFini, [FName]));
-       if r='' then r:=rsEmailSentSuc;
-       msg(r,9);
-     end;
-     if assigned(FonEndSequence) then FonEndSequence(nil);
-     CurrentTargetName:='';
-     CurrentTargetInfo:='[" "," ",0,0,0]';
-     CurrentSequenceDirectory:='';
-     finally
-       FWaiting:=false;
-       FFinalizing:=false;
-     end;
    end;
   end;
+end;
+
+procedure T_Targets.FinalizeStopTargets(Sender: TObject);
+var r: string;
+begin
+  if (not TargetForceNext)and(not FAllStepsDone) then // do not mark the global sequence done if some step are incomplete
+    Dec(FTargetsRepeatCount);
+  Dec(FCurrentTarget);
+  // save status
+  SaveDoneCount;
+  FCurrentTarget:=-1;
+  if EmailEndSequence then begin
+    r:=email(Format(rsSequenceFini, [FName]),Format(rsSequenceFini, [FName]));
+    if r='' then r:=rsEmailSentSuc;
+    msg(r,9);
+  end;
+  if assigned(FonEndSequence) then FonEndSequence(nil);
+  CurrentTargetName:='';
+  CurrentTargetInfo:='[" "," ",0,0,0]';
+  CurrentSequenceDirectory:='';
+  FWaiting:=false;
+  FFinalizing:=false;
 end;
 
 function T_Targets.SequenceDirectory: string;
@@ -3336,7 +3352,7 @@ begin
  end;
 end;
 
-procedure T_Targets.RunErrorAction;
+procedure T_Targets.RunErrorAction(donecallback: TNotifyEvent=nil);
 var scriptfound:boolean;
     i:integer;
     sc,param: string;
@@ -3345,10 +3361,11 @@ begin
   f_pause.Text := rsDoYouWantToR2;
   if not f_pause.Wait(20, true, rsYes, rsNo) then begin
     msg(rsRequestedToN, 1);
+    if Assigned(donecallback) then donecallback(self);
     exit;
   end;
   msg(rsExecutingThe,1);
-  RunEndAction(false);
+  RunEndAction(false, donecallback);
   if OnErrorRunScript then begin
     i:=pos(' ',OnErrorScript);
     if i>0 then begin
@@ -3370,20 +3387,21 @@ begin
   end;
 end;
 
-procedure T_Targets.RunEndAction(confirm: boolean=true);
-const WarmWaitTimeoutMin = 15;
+procedure T_Targets.RunEndAction(confirm: boolean=true; donecallback: TNotifyEvent=nil);
 begin
+FRunEndActionDone:=donecallback;
 if AtEndStopTracking or AtEndPark or AtEndCloseDome or AtEndWarmCamera or AtEndRunScript or AtEndShutdown then begin
   if confirm then begin
     f_pause.Caption:=rsTerminationO;
     f_pause.Text := rsDoYouWantToR2;
     if not f_pause.Wait(20, true, rsYes, rsNo) then begin
       msg(rsRequestedToN, 1);
+      RunEndActionDone;
       exit;
     end;
   end;
   msg(rsExecutingThe2,1);
-  WarmCameraWaitTimer.Enabled:=false;
+  EndActionWaitTimer.Enabled:=false;
   if AtEndStopTracking then begin
     StopGuider;
     msg(rsStopTelescop2,1);
@@ -3409,32 +3427,34 @@ if AtEndStopTracking or AtEndPark or AtEndCloseDome or AtEndWarmCamera or AtEndR
     if (guidecamera<>nil)and guidecamera.CanSetTemperature then guidecamera.Temperature:=20;
     if (findercamera<>nil)and(not SameGuiderFinder)and findercamera.CanSetTemperature then findercamera.Temperature:=20;
   end;
-  // optionally wait for the camera to actually reach its end temperature
-  // before running the script and/or shutting down the program
-  if AtEndWarmCamera and AtEndWaitCamera and (AtEndRunScript or AtEndShutdown) and
-     (Camera<>nil) and Camera.CanSetTemperature then begin
-    msg(rsWaitingCameraTemp,1);
-    FWarmWaitDeadline:=NowUTC+EncodeTime(0,WarmWaitTimeoutMin,0,0);
-    WarmCameraWaitTimer.Enabled:=true;
+  // optionally wait a configurable delay (e.g. to give the camera time to
+  // warm up) before running the script and/or shutting down the program
+  if AtEndWaitScript and (AtEndWaitMinutes>0) and (AtEndRunScript or AtEndShutdown) then begin
+    msg(Format(rsWaitingBeforeScript,[AtEndWaitMinutes]),1);
+    EndActionWaitTimer.Interval:=AtEndWaitMinutes*60000;
+    EndActionWaitTimer.Enabled:=true;
     exit;
   end;
   RunEndActionFinish;
 end
-else
+else begin
   msg(rsNoTerminatio, 1);
+  RunEndActionDone;
+end;
 end;
 
-procedure T_Targets.WarmCameraWaitTimerTimer(Sender: TObject);
+procedure T_Targets.EndActionWaitTimerTimer(Sender: TObject);
 begin
-  if (not Camera.TemperatureRampActive) and (abs(Camera.Temperature-20.0)<=1.0) then begin
-    WarmCameraWaitTimer.Enabled:=false;
-    RunEndActionFinish;
-  end
-  else if NowUTC>FWarmWaitDeadline then begin
-    WarmCameraWaitTimer.Enabled:=false;
-    msg(rsWaitingCameraTempTimeout,1);
-    RunEndActionFinish;
-  end;
+  EndActionWaitTimer.Enabled:=false;
+  RunEndActionFinish;
+end;
+
+procedure T_Targets.RunEndActionDone;
+var cb: TNotifyEvent;
+begin
+  cb:=FRunEndActionDone;
+  FRunEndActionDone:=nil;
+  if Assigned(cb) then cb(self);
 end;
 
 procedure T_Targets.RunEndActionFinish;
@@ -3465,6 +3485,7 @@ begin
      msg(rsExitProgram,1);
      if Assigned(FonShutdown) then FonShutdown(self);
   end;
+  RunEndActionDone;
 end;
 
 function  T_Targets.GetScriptRunning: boolean;
