@@ -102,6 +102,7 @@ type
       FAtEndWaitMinutes: integer;
       FAtEndScript, FOnErrorScript: string;
       FRunEndActionDone: TNotifyEvent;
+      FRunErrorActionDone: TNotifyEvent;
       EndActionWaitTimer: TTimer;
       FAtStartCool,FAtStartUnpark, FAtStartRunScript: boolean;
       FAtStartScript: string;
@@ -136,6 +137,7 @@ type
       function InitSkyFlat: boolean;
       procedure StartPlan;
       procedure RunErrorAction(donecallback: TNotifyEvent=nil);
+      procedure RunErrorActionScript(Sender: TObject);
       procedure RunEndAction(confirm: boolean=true; donecallback: TNotifyEvent=nil);
       procedure RunEndActionFinish;
       procedure RunEndActionDone;
@@ -1581,6 +1583,7 @@ begin
   CurrentTargetInfo:='[" "," ",0,0,0]';
   CurrentStepName:='';
   CurrentSequenceDirectory:='';
+  FWaiting:=false;
 end;
 
 function T_Targets.CheckStatus:boolean;
@@ -3353,9 +3356,6 @@ begin
 end;
 
 procedure T_Targets.RunErrorAction(donecallback: TNotifyEvent=nil);
-var scriptfound:boolean;
-    i:integer;
-    sc,param: string;
 begin
   f_pause.Caption:=rsTerminationO;
   f_pause.Text := rsDoYouWantToR2;
@@ -3365,7 +3365,16 @@ begin
     exit;
   end;
   msg(rsExecutingThe,1);
-  RunEndAction(false, donecallback);
+  FRunErrorActionDone:=donecallback;
+  RunEndAction(false, @RunErrorActionScript);
+end;
+
+procedure T_Targets.RunErrorActionScript(Sender: TObject);
+var scriptfound:boolean;
+    i:integer;
+    sc,param: string;
+    cb: TNotifyEvent;
+begin
   if OnErrorRunScript then begin
     i:=pos(' ',OnErrorScript);
     if i>0 then begin
@@ -3385,6 +3394,9 @@ begin
       msg(Format(rsFileNotFound,[sc+'.script']),1);
     end;
   end;
+  cb:=FRunErrorActionDone;
+  FRunErrorActionDone:=nil;
+  if Assigned(cb) then cb(self);
 end;
 
 procedure T_Targets.RunEndAction(confirm: boolean=true; donecallback: TNotifyEvent=nil);
