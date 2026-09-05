@@ -117,6 +117,7 @@ type
     StartOpt: TCheckListBox;
     PlanSwitch: TTabSheet;
     TermOpt: TCheckListBox;
+    CheckBoxWaitWarm: TCheckBox;
     FFstopbox: TComboBox;
     FlatFilterList: TCheckGroup;
     Label4: TLabel;
@@ -423,6 +424,7 @@ begin
   planheight:=-1;
   f_selectscript:=Tf_selectscript.Create(self);
   TermOpt.Checked[cbStopTracking]:=true;
+  CheckBoxWaitWarm.Enabled:=false;
   SetLang;
   LoadPlanList;
   LoadScriptList;
@@ -657,6 +659,8 @@ begin
   TermOpt.Items[cbWarm]:=rsWarmTheCamer;
   TermOpt.Items[cbScript]:=rsRunAScript;
   TermOpt.Items[cbUnattended]:=rsUnattendedEr;
+  CheckBoxWaitWarm.Caption:=rsWaitCameraBeforeScript;
+  CheckBoxWaitWarm.Hint:=rsWaitingCameraTemp;
   // hint
   Preview.Hint:=rsStartAPrevie;
   CheckBoxRepeatList.Hint:=rsRepeatTheWho2;
@@ -1762,6 +1766,7 @@ begin
      end;
   end;
   SetEndScriptName;
+  CheckBoxWaitWarm.Enabled:=TermOpt.Checked[cbWarm];
   finally
   Lockcb:=false;
   end;
@@ -4054,6 +4059,7 @@ begin
   value.AtEndPark         := TermOpt.Checked[cbParkScope];
   value.AtEndCloseDome    := TermOpt.Checked[cbParkDome];
   value.AtEndWarmCamera   := TermOpt.Checked[cbWarm];
+  value.AtEndWaitCamera   := CheckBoxWaitWarm.Checked;
   value.AtEndRunScript    := TermOpt.Checked[cbScript];
   value.OnErrorRunScript  := TermOpt.Checked[cbUnattended];
   value.AtEndScript       := EndScript;
@@ -4098,6 +4104,8 @@ begin
      TermOpt.Checked[cbWarm]:=value.AtEndWarmCamera;
      TermOpt.Checked[cbScript]:=value.AtEndRunScript;
      TermOpt.Checked[cbUnattended]:=value.OnErrorRunScript;
+     CheckBoxWaitWarm.Checked:=value.AtEndWaitCamera;
+     CheckBoxWaitWarm.Enabled:=TermOpt.Checked[cbWarm];
      EndScript:=value.AtEndScript;
      UnattendedScript:=value.OnErrorScript;
      for i:=1 to value.Count do begin
@@ -4133,6 +4141,8 @@ begin
      TermOpt.Checked[cbWarm]:=false;
      TermOpt.Checked[cbScript]:=false;
      TermOpt.Checked[cbUnattended]:=false;
+     CheckBoxWaitWarm.Checked:=false;
+     CheckBoxWaitWarm.Enabled:=false;
      EndScript:='';
      UnattendedScript:='';
      TargetList.RowCount:=1;

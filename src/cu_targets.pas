@@ -98,7 +98,10 @@ type
       FFileVersion, FSlewRetry: integer;
       FUpdatecoordDelay: integer;
       FAtEndPark, FAtEndCloseDome, FAtEndStopTracking,FAtEndWarmCamera,FAtEndRunScript,FOnErrorRunScript,FAtEndShutdown: boolean;
+      FAtEndWaitCamera: boolean;
       FAtEndScript, FOnErrorScript: string;
+      WarmCameraWaitTimer: TTimer;
+      FWarmWaitDeadline: TDateTime;
       FAtStartCool,FAtStartUnpark, FAtStartRunScript: boolean;
       FAtStartScript: string;
       SkipTarget: boolean;
@@ -133,6 +136,8 @@ type
       procedure StartPlan;
       procedure RunErrorAction;
       procedure RunEndAction(confirm: boolean=true);
+      procedure RunEndActionFinish;
+      procedure WarmCameraWaitTimerTimer(Sender: TObject);
       function StopGuider:boolean;
       function StartGuider:boolean;
       function Slew(ra,de,magn: double; precision,planprecision: boolean):boolean;
@@ -253,6 +258,7 @@ type
       property AtEndRunScript: boolean read FAtEndRunScript write FAtEndRunScript;
       property OnErrorRunScript: boolean read FOnErrorRunScript write FOnErrorRunScript;
       property AtEndScript: string read FAtEndScript write FAtEndScript;
+      property AtEndWaitCamera: boolean read FAtEndWaitCamera write FAtEndWaitCamera;
       property OnErrorScript: string read FOnErrorScript write FOnErrorScript;
       property AtEndShutdown: boolean read FAtEndShutdown write FAtEndShutdown;
       property OnShutdown: TNotifyEvent read FonShutdown write FonShutdown;
@@ -303,6 +309,7 @@ begin
   FAtEndRunScript:=false;
   FOnErrorRunScript:=false;
   FAtEndShutdown:=false;
+  FAtEndWaitCamera:=false;
   FAtEndScript:='';
   FOnErrorScript:='';
   FDoneStatus:='';
@@ -343,6 +350,10 @@ begin
   WeatherRestartTimer:=TTimer.Create(self);
   WeatherRestartTimer.Enabled:=false;
   WeatherRestartTimer.OnTimer:=@WeatherRestartTimerTimer;
+  WarmCameraWaitTimer:=TTimer.Create(self);
+  WarmCameraWaitTimer.Enabled:=false;
+  WarmCameraWaitTimer.Interval:=2000;
+  WarmCameraWaitTimer.OnTimer:=@WarmCameraWaitTimerTimer;
 end;
 
 destructor  T_Targets.Destroy;
@@ -526,6 +537,7 @@ begin
   FAtEndStopTracking := Source.FAtEndStopTracking;
   FAtEndWarmCamera := Source.FAtEndWarmCamera;
   FAtEndShutdown := Source.FAtEndShutdown;
+  FAtEndWaitCamera := Source.FAtEndWaitCamera;
   FAtEndRunScript := Source.FAtEndRunScript;
   FAtEndScript := Source.FAtEndScript;
   FOnErrorRunScript := Source.FOnErrorRunScript;
@@ -590,6 +602,7 @@ begin
   FAtEndStopTracking := Source.FAtEndStopTracking;
   FAtEndWarmCamera := Source.FAtEndWarmCamera;
   FAtEndShutdown := Source.FAtEndShutdown;
+  FAtEndWaitCamera := Source.FAtEndWaitCamera;
   FAtEndRunScript := Source.FAtEndRunScript;
   FAtEndScript := Source.FAtEndScript;
   FOnErrorRunScript := Source.FOnErrorRunScript;
@@ -802,6 +815,7 @@ begin
    AtEndPark        := FSequenceFile.Items.GetValue('/Termination/Park',false);
    AtEndCloseDome   := FSequenceFile.Items.GetValue('/Termination/CloseDome',false);
    AtEndWarmCamera  := FSequenceFile.Items.GetValue('/Termination/WarmCamera',false);
+   AtEndWaitCamera  := FSequenceFile.Items.GetValue('/Termination/WaitCamera',false);
    AtEndRunScript   := FSequenceFile.Items.GetValue('/Termination/RunScript',false);
    OnErrorRunScript := FSequenceFile.Items.GetValue('/Termination/ErrorRunScript',false);
    AtEndScript      := FSequenceFile.Items.GetValue('/Termination/EndScript','');
@@ -1011,6 +1025,7 @@ try
     FSequenceFile.Items.SetValue('/Termination/Park',AtEndPark);
     FSequenceFile.Items.SetValue('/Termination/CloseDome',AtEndCloseDome);
     FSequenceFile.Items.SetValue('/Termination/WarmCamera',AtEndWarmCamera);
+    FSequenceFile.Items.SetValue('/Termination/WaitCamera',AtEndWaitCamera);
     FSequenceFile.Items.SetValue('/Termination/RunScript',AtEndRunScript);
     FSequenceFile.Items.SetValue('/Termination/ErrorRunScript',OnErrorRunScript);
     FSequenceFile.Items.SetValue('/Termination/EndScript',AtEndScript);
@@ -3356,9 +3371,7 @@ begin
 end;
 
 procedure T_Targets.RunEndAction(confirm: boolean=true);
-var i: integer;
-    scriptfound: boolean;
-    sc,param: string;
+const WarmWaitTimeoutMin = 15;
 begin
 if AtEndStopTracking or AtEndPark or AtEndCloseDome or AtEndWarmCamera or AtEndRunScript or AtEndShutdown then begin
   if confirm then begin
@@ -3370,6 +3383,7 @@ if AtEndStopTracking or AtEndPark or AtEndCloseDome or AtEndWarmCamera or AtEndR
     end;
   end;
   msg(rsExecutingThe2,1);
+  WarmCameraWaitTimer.Enabled:=false;
   if AtEndStopTracking then begin
     StopGuider;
     msg(rsStopTelescop2,1);
@@ -3395,6 +3409,39 @@ if AtEndStopTracking or AtEndPark or AtEndCloseDome or AtEndWarmCamera or AtEndR
     if (guidecamera<>nil)and guidecamera.CanSetTemperature then guidecamera.Temperature:=20;
     if (findercamera<>nil)and(not SameGuiderFinder)and findercamera.CanSetTemperature then findercamera.Temperature:=20;
   end;
+  // optionally wait for the camera to actually reach its end temperature
+  // before running the script and/or shutting down the program
+  if AtEndWarmCamera and AtEndWaitCamera and (AtEndRunScript or AtEndShutdown) and
+     (Camera<>nil) and Camera.CanSetTemperature then begin
+    msg(rsWaitingCameraTemp,1);
+    FWarmWaitDeadline:=NowUTC+EncodeTime(0,WarmWaitTimeoutMin,0,0);
+    WarmCameraWaitTimer.Enabled:=true;
+    exit;
+  end;
+  RunEndActionFinish;
+end
+else
+  msg(rsNoTerminatio, 1);
+end;
+
+procedure T_Targets.WarmCameraWaitTimerTimer(Sender: TObject);
+begin
+  if (not Camera.TemperatureRampActive) and (abs(Camera.Temperature-20.0)<=1.0) then begin
+    WarmCameraWaitTimer.Enabled:=false;
+    RunEndActionFinish;
+  end
+  else if NowUTC>FWarmWaitDeadline then begin
+    WarmCameraWaitTimer.Enabled:=false;
+    msg(rsWaitingCameraTempTimeout,1);
+    RunEndActionFinish;
+  end;
+end;
+
+procedure T_Targets.RunEndActionFinish;
+var i: integer;
+    scriptfound: boolean;
+    sc,param: string;
+begin
   if AtEndRunScript then begin
     i:=pos(' ',AtEndScript);
     if i>0 then begin
@@ -3418,9 +3465,6 @@ if AtEndStopTracking or AtEndPark or AtEndCloseDome or AtEndWarmCamera or AtEndR
      msg(rsExitProgram,1);
      if Assigned(FonShutdown) then FonShutdown(self);
   end;
-end
-else
-  msg(rsNoTerminatio, 1);
 end;
 
 function  T_Targets.GetScriptRunning: boolean;

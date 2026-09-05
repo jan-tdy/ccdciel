@@ -103,8 +103,8 @@ object f_EditTargets: Tf_EditTargets
           TabOrder = 1
           object TermOpt: TCheckListBox
             Left = 0
-            Height = 102
-            Top = 24
+            Height = 82
+            Top = 44
             Width = 243
             Align = alBottom
             Items.Strings = (
@@ -131,6 +131,16 @@ object f_EditTargets: Tf_EditTargets
             Caption = 'Termination options'
             ParentColor = False
             ParentFont = False
+          end
+          object CheckBoxWaitWarm: TCheckBox
+            Left = 8
+            Height = 18
+            Top = 22
+            Width = 230
+            Caption = 'Wait for the camera before running the script'
+            Enabled = False
+            ParentFont = False
+            TabOrder = 1
           end
         end
       end
